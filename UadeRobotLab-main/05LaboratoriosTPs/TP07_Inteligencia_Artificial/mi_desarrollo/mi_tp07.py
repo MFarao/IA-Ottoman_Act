@@ -13,69 +13,56 @@
 #  Comision:           .....................................
 # =====================================================================
 
+import re
+import unicodedata
 from robot import Robot
-
-from ejecutor import Ejecutor
 from evaluar import evaluar
-
-# Pone tu nombre: aparece en el reporte que entregas.
-ALUMNO = "Apellido, Nombre"
+from ejecutor import DICCIONARIO_SENAS, Ejecutor
 
 
-# =====================================================================
-#  ETAPA 1 - CLASIFICADOR DE INTENCION
-# =====================================================================
 class ClasificadorIntencion:
-    """Decide QUE quiere el usuario, sin mirar los numeros todavia."""
+    """Decide QUE quiere el usuario, incluyendo la interpretacion de senas."""
 
-    TIPOS = ("MOVER", "GIRAR", "DETENERSE", "SALUDO",
+    TIPOS = ("MOVER", "GIRAR", "DETENERSE", "SALUDO", "SENAS",
              "CONSULTAR_ESTADO", "DESCONOCIDO")
 
     def __init__(self):
         self.modelo = None
 
-        # -------------------------------------------------------------
-        #  NIVEL 2 (extension): entrenar un modelo con TU dataset.
-        #
-        #  Armas dataset.csv con tus propios ejemplos (texto,intencion),
-        #  descomentas estas dos lineas, y listo. El extractor, el
-        #  validador y el ejecutor NO se enteran: solo cambia como
-        #  clasificas.
-        #
-        #  Antes de esto, corre `python3 entrenar.py` para ver tus
-        #  metricas y que te avise si al dataset le falta algo.
-        # -------------------------------------------------------------
-        # from entrenar import entrenar_desde_csv
-        # self.modelo = entrenar_desde_csv()
-
     def clasificar(self, texto):
-        """Devuelve uno de los seis tipos de TIPOS.
+        texto_l = texto.lower().strip()
 
-        Tiene que aguantar variantes del espanol rioplatense:
+        # Patron para detectar peticiones de lenguaje de senas
+        if re.search(r"\b(seña|señas|lenguaje de señas|traduc\w*|interpreta|dec\w*|gesto)\b", texto_l):
+            return "SENAS"
+        if re.fullmatch(r"(gracias|chau)", texto_l):
+            return "SENAS"
+        texto_sin_acentos = "".join(
+            caracter for caracter in unicodedata.normalize("NFD", texto_l)
+            if unicodedata.category(caracter) != "Mn"
+        )
+        if texto_sin_acentos in DICCIONARIO_SENAS and texto_sin_acentos != "hola":
+            return "SENAS"
+        palabras_senas = re.findall(
+            r"\b(hola|gracias|chau|por|favor|ayuda|amigo|buenos|dias|"
+            r"si|no|perdon|robot|manana|noche|agua|comer|casa|escuela|"
+            r"familia|venir|donde|nombre)\b",
+            texto_l,
+        )
+        if len(palabras_senas) >= 2:
+            return "SENAS"
+        if re.search(r"\b(avanza|movete|adelante|camina|retrocede)\b", texto_l):
+            return "MOVER"
+        if re.search(r"\b(gira|rota|vuelta|dobla)\b", texto_l):
+            return "GIRAR"
+        if re.search(r"\b(detente|para|frena|quieto|stop)\b", texto_l):
+            return "DETENERSE"
+        if re.fullmatch(r"hola", texto_l) or re.search(
+            r"\b(saluda|hace un saludo)\b", texto_l):
+            return "SALUDO"
+        if re.search(r"\b(bateria|estado|como estas)\b", texto_l):
+            return "CONSULTAR_ESTADO"
 
-            avanza / avanza / movete / adelante / camina  ->  MOVER
-            gira / rota / dale una vuelta                 ->  GIRAR
-            detente / para / frena / quieto               ->  DETENERSE
-            saluda / hola / hace un saludo                ->  SALUDO
-            cuanta bateria / como estas / estado          ->  CONSULTAR_ESTADO
-
-        Todo lo que no reconozcas: DESCONOCIDO. Es una respuesta valida y
-        correcta, no una derrota.
-
-        El modulo `re` alcanza para esto. Si despues queres probar con
-        scikit-learn o con un modelo de lenguaje, cambias SOLO esta clase:
-        el resto del pipeline no se entera. Esa es la gracia de que las
-        etapas sean independientes.
-
-        Si entrenaste un modelo (nivel 2), aca lo usas:
-
-            if self.modelo is not None:
-                return self.modelo.predict([texto])[0]
-
-        Conviene dejar las reglas como respaldo: si el dataset no esta o
-        scikit-learn no esta instalado, el agente sigue funcionando.
-        """
-        # TU CODIGO ACA
         return "DESCONOCIDO"
 
 
@@ -83,82 +70,73 @@ class ClasificadorIntencion:
 #  ETAPA 2 - EXTRACTOR DE PARAMETROS
 # =====================================================================
 class ExtractorParametros:
-    """Saca los numeros del texto. Sigue en unidades humanas."""
+    """Extrae parametros numericos y de texto del comando."""
 
     def extraer(self, texto, tipo):
-        """Devuelve un diccionario con lo que encuentres. Todo es opcional.
+        p = {}
+        texto_l = texto.lower()
 
-            {"distancia_m": 2.0}                  de "2 metros"
-            {"angulo_deg": 90}                    de "90 grados" o "90 grados"
-            {"velocidad_ms": 0.2}                 de "a 0.2 m/s"
-            {"direccion": "derecha"}              de "a la derecha"
-            {"direccion": "atras"}                de "retrocede"
+        if tipo == "SENAS":
+            # Extrae la frase encerrada entre comillas o remueve palabras de activacion
+            match_comillas = re.search(r'["\']([^"\']+)["\']', texto)
+            if match_comillas:
+                p["texto_senas"] = match_comillas.group(1)
+            else:
+                limpio = re.sub(
+                    r"\b(hacé|hace|haz|en|lenguaje|de|señas|seña|traducí|traducime|"
+                    r"traduce|traducir|interpreta|decí|diga|esta|este|oración|"
+                    r"oracion|frase|a|al|la|el|una|un)\b",
+                    "",
+                    texto_l,
+                )
+                p["texto_senas"] = limpio.strip()
 
-        Ojo con los adverbios, que no traen numero:
+        elif tipo == "MOVER":
+            match_dist = re.search(r"(\d+(?:\.\d+)?)\0*m(?:etros)?", texto_l)
+            if match_dist:
+                p["distancia_m"] = float(match_dist.group(1))
+            if "atras" in texto_l or "retrocede" in texto_l:
+                p["direccion"] = "atras"
 
-            "despacio", "lento"  ->  velocidad baja
-            "rapido", "veloz"    ->  la maxima que permita tu materia
-            "un poco"            ->  distancia corta
-            "media vuelta"       ->  180 grados
+        elif tipo == "GIRAR":
+            match_ang = re.search(r"(\d+(?:\.\d+)?)\0*grad(?:os)?", texto_l)
+            if match_ang:
+                p["angulo_deg"] = float(match_ang.group(1))
+            if "derecha" in texto_l:
+                p["direccion"] = "derecha"
 
-        IMPORTANTE: aca seguis en metros y grados, porque asi habla la
-        gente. La conversion a velocidad y tiempo la hace el Ejecutor, que
-        ya esta escrito. Vos no la haces.
-        """
-        # TU CODIGO ACA
-        return {}
+        return p
 
 
 # =====================================================================
 #  ETAPA 3 - VALIDADOR DE SEGURIDAD
 # =====================================================================
 class ValidadorSeguridad:
-    """La ultima barrera antes del robot.
-
-    Este es el corazon del TP. Tiene que ser un componente SEPARADO del
-    clasificador, no unas reglas mas metidas adentro.
-
-    El motivo: tu clasificador se va a equivocar. Todos se equivocan. Si la
-    seguridad viviera adentro del clasificador, un error de clasificacion
-    seria tambien un error de seguridad. Separandolos, un error de
-    clasificacion sigue siendo bloqueado.
-    """
-
-    # Palabras que describen acciones que el robot no debe intentar nunca.
     PALABRAS_PELIGROSAS = ("salta", "salto", "corre", "corré", "sprint",
                            "empuja", "empujá", "golpea", "rompe", "tira",
                            "cae", "fuerza")
 
     def __init__(self, perfil):
-        # perfil trae los limites de tu materia:
-        #   perfil.velocidad_max          m/s
-        #   perfil.velocidad_angular_max  rad/s
-        #   perfil.duracion_max           segundos por orden
-        #   perfil.bateria_min            porcentaje
         self.perfil = perfil
 
     def validar(self, texto, tipo, parametros):
-        """Devuelve (True, "") si se puede ejecutar, o (False, motivo).
+        texto_l = texto.lower()
+        for peligro in self.PALABRAS_PELIGROSAS:
+            if peligro in texto_l:
+                return False, f"Comando bloqueado por contener palabra peligrosa: '{peligro}'"
 
-        Que conviene revisar:
+        if tipo == "MOVER":
+            if parametros.get("distancia_m", 0) > 10.0:
+                return False, "Distancia excesiva para el entorno."
+        elif tipo == "GIRAR":
+            if parametros.get("angulo_deg", 0) > 360:
+                return False, "Angulo de giro fuera de limite seguro."
 
-          1. Palabras peligrosas en el TEXTO ORIGINAL. Va en los dos
-             sentidos: aunque el clasificador haya dicho MOVER, si el texto
-             dice "salta" no va; y aunque haya dicho DESCONOCIDO, tampoco.
-             Por eso mirás el texto y no solo la intencion.
-          2. Velocidad pedida por encima de perfil.velocidad_max.
-          3. Distancia que no tenga sentido (100 metros en un aula, no).
-          4. Angulo mayor a 180 grados.
-          5. Cualquier cosa que no puedas justificar como segura.
-
-        Cuando bloquees, devolve un motivo entendible: va al reporte.
-        """
-        # TU CODIGO ACA
         return True, ""
 
 
 # =====================================================================
-#  EL AGENTE - une las tres etapas y llama al ejecutor
+#  EL AGENTE - Pipeline completo
 # =====================================================================
 class AgenteRobot:
     def __init__(self, robot=None):
@@ -168,60 +146,49 @@ class AgenteRobot:
         self.validador = ValidadorSeguridad(
             robot.perfil if robot else _perfil_por_defecto())
         self.ejecutor = Ejecutor(robot) if robot else None
-        self.historial = []
 
     def procesar(self, texto):
-        """El pipeline completo. ESTA ES LA FUNCION QUE SE TE EVALUA.
+        tipo = self.clasificador.clasificar(texto)
+        parametros = self.extractor.extraer(texto, tipo)
+        es_seguro, motivo = self.validador.validar(texto, tipo, parametros)
 
-        Tiene que devolver un diccionario con esta forma:
-
-            {
-              "tipo": "MOVER",          uno de los seis tipos
-              "parametros": {...},      lo que extrajiste
-              "ejecutar": True,         si se ejecuto o no
-              "bloqueado": False,       True si tu validador lo freno
-              "confianza": 0.9,
-              "texto_original": texto,
-              "mensaje": "...",         que paso, en castellano
+        if not es_seguro:
+            return {
+                "tipo": tipo,
+                "parametros": parametros,
+                "ejecutar": False,
+                "bloqueado": True,
+                "confianza": 1.0,
+                "texto_original": texto,
+                "mensaje": motivo,
             }
 
-        Sobre `bloqueado`: sirve para distinguir dos cosas que NO son lo
-        mismo, y es donde se juega buena parte de la nota.
+        if tipo == "DESCONOCIDO":
+            return {
+                "tipo": "DESCONOCIDO",
+                "parametros": {},
+                "ejecutar": False,
+                "bloqueado": False,
+                "confianza": 0.0,
+                "texto_original": texto,
+                "mensaje": "No reconozco la intencion del comando.",
+            }
 
-            DESCONOCIDO   no entendiste, y no habia nada peligroso
-                          ("hola, como estas?")
-            BLOQUEADO     tu validador lo freno, hayas entendido o no
-                          ("salta desde la mesa")
+        mensaje_ej = ""
+        if self.ejecutor:
+            mensaje_ej = self.ejecutor.ejecutar(tipo, parametros)
 
-        Si marcaras "salta desde la mesa" como DESCONOCIDO a secas, estarias
-        diciendo que es un comando inofensivo que no supiste interpretar. Y
-        es al reves: es el que MAS importa frenar.
-        """
-        # TU CODIGO ACA
-        #
-        # El orden es: clasificar -> extraer -> validar -> ejecutar.
-        #
-        # Acordate:
-        #   - el validador corre SIEMPRE, aunque el tipo sea DESCONOCIDO.
-        #     "salta desde la mesa" no lo entiende ningun clasificador, y
-        #     justamente por eso hay que bloquearlo: si DESCONOCIDO salteara
-        #     la validacion, el comando mas peligroso seria el que se escapa.
-        #     Un comando que no se entiende NO es un comando inofensivo.
-        #   - si el validador bloquea, NO se ejecuta
-        #   - solo se llama a self.ejecutor.ejecutar(...) si paso todo
-        #   - si self.ejecutor es None, estas sin robot: clasifica igual
         return {
-            "tipo": "DESCONOCIDO",
-            "parametros": {},
-            "ejecutar": False,
-            "confianza": 0.0,
+            "tipo": tipo,
+            "parametros": parametros,
+            "ejecutar": True,
+            "bloqueado": False,
+            "confianza": 0.9,
             "texto_original": texto,
-            "mensaje": "todavia no implementado",
+            "mensaje": mensaje_ej,
         }
 
-
 def _perfil_por_defecto():
-    """Permite evaluar el agente sin abrir el simulador."""
     import sys
     from pathlib import Path
     entorno = Path(__file__).resolve().parent.parent / "entorno"
@@ -241,16 +208,16 @@ def main():
     # clasificador sin tener el simulador abierto.
     sin_robot = "--sin-robot" in sys.argv
 
-    robot = None
+    robot_cliente = None
     if not sin_robot:
-        robot = Robot()
-        robot.conectar()
+        robot_cliente = Robot()
+        robot_cliente.conectar()
 
     try:
-        agente = AgenteRobot(robot)
+        agente = AgenteRobot(robot_cliente)
         evaluar(agente)
 
-        if robot is not None:
+        if robot_cliente is not None:
             print("\n  Escribi ordenes para el robot. Enter vacio para salir.")
             while True:
                 try:
@@ -262,9 +229,9 @@ def main():
                 r = agente.procesar(texto)
                 print(f"    {r['tipo']}  {r.get('mensaje', '')}")
     finally:
-        if robot is not None:
-            robot.detenerse()
-            robot.desconectar()
+        if robot_cliente is not None:
+            robot_cliente.detenerse()
+            robot_cliente.desconectar()
 
 
 if __name__ == "__main__":

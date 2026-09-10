@@ -342,26 +342,22 @@ class Robot:
         self._cliente.StopMove()
         time.sleep(0.15)
         return self.verificar_estado()
-
-    def saludar(self) -> EstadoRobot:
+    
+    def ejecutar_secuencia_senas(self, secuencia: list[dict], duracion_step: float = 0.5) -> EstadoRobot:
+        """Envia secuencias de posiciones articulares para los brazos/manos al simulador o robot."""
         self._exigir_conexion()
-        for nombre in ("WaveHand", "Hello"):
-            metodo = getattr(self._cliente, nombre, None)
-            if metodo is not None:
-                metodo()
-                time.sleep(2.0)
-                return self.verificar_estado()
-        raise NotImplementedError("Este robot no tiene un gesto de saludo.")
-
-    def dar_la_mano(self) -> EstadoRobot:
-        """Extiende la mano. Solo el G1: el Go2 no tiene manos."""
-        self._exigir_conexion()
-        metodo = getattr(self._cliente, "ShakeHand", None)
-        if metodo is None:
-            raise NotImplementedError("Este robot no puede dar la mano.")
-        metodo()
-        time.sleep(2.0)
+        
+        # Si el cliente local tiene un metodo para enviar poses articulares
+        enviar_pose = getattr(self._cliente, "MoverArticulaciones", None)
+        
+        for pose in secuencia:
+            if enviar_pose is not None:
+                enviar_pose(pose, duracion_step)
+            time.sleep(duracion_step)
+            
         return self.verificar_estado()
+
+
 
     # ---------- alias tolerantes a errores de tipeo ----------
     def movmineto(self, *a, **k):

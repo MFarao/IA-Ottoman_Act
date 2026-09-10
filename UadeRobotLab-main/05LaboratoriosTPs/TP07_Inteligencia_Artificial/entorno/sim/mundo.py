@@ -53,6 +53,8 @@ class Mundo:
             self.accion = "quieto"
             self._vence_en = 0.0
             self._gesto_hasta = 0.0
+            self._pose_articular = {}
+            self._pose_hasta = 0.0
             self._ultimo_avance = time.monotonic()
             self.de_pie = True
             self.altura = 0.0        # offset sobre la altura normal, en metros
@@ -152,6 +154,18 @@ class Mundo:
             self.accion = nombre
             self._gesto_hasta = time.monotonic() + duracion
 
+    def pose_articular(self, articulaciones: dict,
+                       duracion: float = 0.5) -> None:
+        with self._lock:
+            self.vx = self.vy = self.vyaw = 0.0
+            self._vence_en = 0.0
+            self._pose_articular = {
+                str(nombre): float(valor)
+                for nombre, valor in articulaciones.items()
+            }
+            self._pose_hasta = time.monotonic() + max(0.0, duracion)
+            self.accion = "señas"
+
     # ---------- lo llama el bucle del simulador ----------
     # Paso maximo de integracion. Con velocidades de 0.25 m/s, 20 ms son 5 mm:
     # de sobra para que el arco de un giro salga bien.
@@ -179,6 +193,10 @@ class Mundo:
 
             if self._gesto_hasta and ahora >= self._gesto_hasta:
                 self._gesto_hasta = 0.0
+                self.accion = "quieto"
+            if self._pose_hasta and ahora >= self._pose_hasta:
+                self._pose_hasta = 0.0
+                self._pose_articular = {}
                 self.accion = "quieto"
 
             restante = dt
@@ -222,4 +240,5 @@ class Mundo:
                 "bateria": BATERIA_SIMULADA,
                 "moviendose": abs(self.vx) + abs(self.vy) + abs(self.vyaw) > 1e-6,
                 "fase": self.fase,
+                "pose_articular": dict(self._pose_articular),
             }

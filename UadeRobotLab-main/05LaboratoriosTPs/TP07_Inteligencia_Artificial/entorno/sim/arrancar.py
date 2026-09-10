@@ -300,6 +300,15 @@ class SimuladorOficial:
                 if idx < len(art):
                     art[idx] += amplitud * math.sin(f + desfase)
 
+        for nombre, valor in e.get("pose_articular", {}).items():
+            joint_id = self.mj.mj_name2id(
+                self.model, self.mj.mjtObj.mjOBJ_JOINT, f"{nombre}_joint"
+            )
+            if joint_id >= 0:
+                indice = self.model.jnt_qposadr[joint_id]
+                if indice < len(q):
+                    q[indice] = valor
+
         # Velocidad de las articulaciones por diferencia finita. Es REAL: las
         # articulaciones se estan moviendo de verdad, aunque no haya fisica.
         # De aca salen tambien el gyro y la velocidad de motor que publica el

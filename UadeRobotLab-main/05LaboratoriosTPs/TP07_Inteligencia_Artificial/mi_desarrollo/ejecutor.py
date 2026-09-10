@@ -21,7 +21,10 @@
 # =====================================================================
 
 import math
+import re
 import sys
+import time
+import unicodedata
 from pathlib import Path
 
 _ENTORNO = Path(__file__).resolve().parent.parent / "entorno"
@@ -30,39 +33,227 @@ if str(_ENTORNO) not in sys.path:
 
 try:
     from sim.safety import ErrorDeSeguridad
-except ImportError:      # permite leer y probar este archivo suelto
+except ImportError:
     class ErrorDeSeguridad(ValueError):
         pass
 
+# Vocabulario inicial de LSA representado como secuencias de keyframes.
+# Cada palabra tiene varios frames para que la traduccion sea una animacion.
+DICCIONARIO_SENAS = {
+    "hola": [
+        {"right_shoulder_pitch": -1.8, "right_elbow": -0.8, "right_wrist_pitch": -0.7},
+        {"right_shoulder_pitch": -1.2, "right_elbow": -0.2, "right_wrist_pitch": -0.7},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0, "right_wrist_pitch": 0.0}
+    ],
+    "gracias": [
+        {"right_shoulder_pitch": -0.35, "right_shoulder_roll": -0.55,
+         "right_shoulder_yaw": -0.7, "right_elbow": -1.0,
+         "right_wrist_pitch": 0.8, "right_wrist_yaw": 0.0},
+        {"right_shoulder_pitch": -0.05, "right_shoulder_roll": -0.25,
+         "right_shoulder_yaw": -0.45, "right_elbow": -0.65,
+         "right_wrist_pitch": 0.45, "right_wrist_yaw": 0.0},
+        {"right_shoulder_pitch": 0.55, "right_shoulder_roll": 0.15,
+         "right_shoulder_yaw": 0.0, "right_elbow": -0.3,
+         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
+         "right_shoulder_yaw": 0.0, "right_elbow": 0.0,
+         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0}
+    ],
+    "chau": [
+        {"right_shoulder_pitch": -1.45, "right_elbow": -0.45, "right_wrist_roll": 0.8},
+        {"right_shoulder_pitch": -1.45, "right_elbow": -0.45, "right_wrist_roll": -0.8},
+        {"right_shoulder_pitch": -1.45, "right_elbow": -0.45, "right_wrist_roll": 0.8},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "por": [
+        {"right_shoulder_pitch": -0.65, "right_elbow": -1.2, "right_wrist_yaw": -0.8},
+        {"right_shoulder_pitch": -0.8, "right_elbow": -1.0, "right_wrist_yaw": 0.8},
+        {"right_shoulder_pitch": -0.65, "right_elbow": -1.2, "right_wrist_yaw": -0.8},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0, "right_wrist_yaw": 0.0}
+    ],
+    "favor": [
+        {"left_shoulder_pitch": -0.9, "left_elbow": -0.7, "left_wrist_pitch": 0.5,
+         "right_shoulder_pitch": -0.9, "right_elbow": -0.7, "right_wrist_pitch": 0.5},
+        {"left_shoulder_pitch": -1.25, "left_elbow": -0.25, "left_wrist_pitch": 0.5,
+         "right_shoulder_pitch": -1.25, "right_elbow": -0.25, "right_wrist_pitch": 0.5},
+        {"left_shoulder_pitch": -0.9, "left_elbow": -0.7, "left_wrist_pitch": 0.5,
+         "right_shoulder_pitch": -0.9, "right_elbow": -0.7, "right_wrist_pitch": 0.5},
+        {"left_shoulder_pitch": 0.0, "left_elbow": 0.0, "left_wrist_pitch": 0.0,
+         "right_shoulder_pitch": 0.0, "right_elbow": 0.0, "right_wrist_pitch": 0.0}
+    ],
+    "ayuda": [
+        {"right_shoulder_pitch": -1.4, "right_elbow": -0.3, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.0, "right_elbow": 0.1, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.4, "right_elbow": -0.3, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "amigo": [
+        {"right_shoulder_pitch": -1.0, "right_elbow": -0.8, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.6, "right_elbow": -0.45, "right_wrist_roll": 0.5},
+        {"right_shoulder_pitch": -1.0, "right_elbow": -0.8, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "buenos": [
+        {"right_shoulder_pitch": -1.5, "right_elbow": -0.8, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.0, "right_elbow": -0.3, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "dias": [
+        {"right_shoulder_pitch": -1.3, "right_elbow": -0.6, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.75, "right_elbow": -0.2, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "si": [
+        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.1, "right_elbow": 0.1, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "no": [
+        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": 0.8},
+        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": -0.8},
+        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": 0.8},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "perdon": [
+        {"right_shoulder_pitch": -1.2, "right_elbow": -0.7, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.7, "right_elbow": -0.3, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.2, "right_elbow": -0.7, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "robot": [
+        {"right_shoulder_pitch": -1.0, "right_elbow": -0.5, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.5, "right_elbow": 0.0, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "manana": [
+        {"right_shoulder_pitch": -1.3, "right_elbow": -0.6, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.7, "right_elbow": -0.2, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "noche": [
+        {"left_shoulder_pitch": -0.25, "left_elbow": -0.9, "left_wrist_roll": 0.0,
+         "right_shoulder_pitch": -0.25, "right_elbow": -0.9, "right_wrist_roll": 0.0},
+        {"left_shoulder_pitch": -0.55, "left_elbow": -1.2, "left_wrist_roll": 0.0,
+         "right_shoulder_pitch": -0.55, "right_elbow": -1.2, "right_wrist_roll": 0.0},
+        {"left_shoulder_pitch": -0.8, "left_elbow": -1.45, "left_wrist_roll": 0.0,
+         "right_shoulder_pitch": -0.8, "right_elbow": -1.45, "right_wrist_roll": 0.0},
+        {"left_shoulder_pitch": -0.55, "left_elbow": -1.2, "left_wrist_roll": 0.0,
+         "right_shoulder_pitch": -0.55, "right_elbow": -1.2, "right_wrist_roll": 0.0},
+        {"left_shoulder_pitch": 0.0, "left_elbow": 0.0, "left_wrist_roll": 0.0,
+         "right_shoulder_pitch": 0.0, "right_elbow": 0.0, "right_wrist_roll": 0.0}
+    ],
+    "agua": [
+        {"right_shoulder_pitch": -0.8, "right_elbow": -1.0, "right_wrist_roll": 0.6},
+        {"right_shoulder_pitch": -0.8, "right_elbow": -1.0, "right_wrist_roll": -0.6},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "comer": [
+        {"right_shoulder_pitch": -0.6, "right_elbow": -1.1, "right_wrist_pitch": 0.8},
+        {"right_shoulder_pitch": -0.9, "right_elbow": -0.7, "right_wrist_pitch": 0.4},
+        {"right_shoulder_pitch": -0.6, "right_elbow": -1.1, "right_wrist_pitch": 0.8},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "casa": [
+        {"left_shoulder_pitch": -0.8, "left_elbow": -0.4, "right_shoulder_pitch": -0.8, "right_elbow": -0.4},
+        {"left_shoulder_pitch": -1.1, "left_elbow": -0.1, "right_shoulder_pitch": -1.1, "right_elbow": -0.1},
+        {"left_shoulder_pitch": 0.0, "left_elbow": 0.0, "right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "escuela": [
+        {"right_shoulder_pitch": -1.0, "right_elbow": -0.6, "right_wrist_roll": 0.7},
+        {"right_shoulder_pitch": -0.5, "right_elbow": -0.2, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.0, "right_elbow": -0.6, "right_wrist_roll": -0.7},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "familia": [
+        {"left_shoulder_pitch": -0.7, "left_elbow": -0.7, "right_shoulder_pitch": -0.7, "right_elbow": -0.7},
+        {"left_shoulder_pitch": -1.0, "left_elbow": -0.3, "right_shoulder_pitch": -1.0, "right_elbow": -0.3},
+        {"left_shoulder_pitch": -0.7, "left_elbow": -0.7, "right_shoulder_pitch": -0.7, "right_elbow": -0.7},
+        {"left_shoulder_pitch": 0.0, "left_elbow": 0.0, "right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "venir": [
+        {"right_shoulder_pitch": -1.0, "right_elbow": -0.5, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.4, "right_elbow": -0.1, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.0, "right_elbow": -0.5, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "donde": [
+        {"right_shoulder_pitch": -1.4, "right_elbow": -0.4, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -1.4, "right_elbow": -0.4, "right_wrist_roll": 0.8},
+        {"right_shoulder_pitch": -1.4, "right_elbow": -0.4, "right_wrist_roll": -0.8},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ],
+    "nombre": [
+        {"right_shoulder_pitch": -0.8, "right_elbow": -0.9, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.5, "right_elbow": -0.5, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.8, "right_elbow": -0.9, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+    ]
+}
 
-def partir_en_tramos(tiempo_total, tope):
-    """Divide un tiempo largo en tramos que no superen el tope.
 
-    Devuelve una lista de duraciones que suman exactamente tiempo_total.
-    """
-    if tiempo_total <= tope:
-        return [tiempo_total]
-    tramos = []
-    restante = float(tiempo_total)
-    while restante > tope + 1e-9:
-        tramos.append(tope)
-        restante -= tope
-    if restante > 1e-9:
-        tramos.append(restante)
-    return tramos
+def _agregar_frames_intermedios(secuencia):
+    """Suaviza cada seña y garantiza mas de cuatro frames por palabra."""
+    frames = []
+    for actual, siguiente in zip(secuencia, secuencia[1:]):
+        frames.append(actual)
+        claves = set(actual) | set(siguiente)
+        frames.append({
+            clave: (actual.get(clave, 0.0) + siguiente.get(clave, 0.0)) / 2
+            for clave in claves
+        })
+    frames.append(secuencia[-1])
+    return frames
+
+
+_PERFILES_VISUALES = {
+    "hola": {"right_shoulder_pitch": -1.8, "right_elbow": -0.8},
+    "gracias": {"right_shoulder_pitch": -0.35, "right_shoulder_roll": -0.55},
+    "chau": {"right_shoulder_pitch": -1.45, "right_wrist_roll": 0.8},
+    "por": {"right_shoulder_pitch": -0.65, "right_wrist_yaw": -0.8},
+    "favor": {"left_shoulder_pitch": -0.9, "right_shoulder_pitch": -0.9},
+    "ayuda": {"right_shoulder_pitch": -2.0, "right_elbow": -0.1},
+    "amigo": {"left_shoulder_pitch": -1.2, "right_shoulder_pitch": -0.4},
+    "buenos": {"left_shoulder_pitch": -1.3, "right_shoulder_pitch": -1.3},
+    "dias": {"right_shoulder_pitch": 0.6, "right_elbow": -1.2},
+    "si": {"right_shoulder_pitch": -0.2, "right_elbow": -1.3},
+    "no": {"right_shoulder_pitch": -1.1, "right_wrist_roll": 0.8},
+    "perdon": {"right_shoulder_pitch": -0.2, "right_elbow": -1.4},
+    "robot": {"right_shoulder_pitch": 0.8, "right_elbow": -0.2},
+    "manana": {"right_shoulder_pitch": -0.8, "right_elbow": 0.5},
+    "noche": {"left_shoulder_pitch": -0.8, "right_shoulder_pitch": -0.8},
+    "agua": {"right_shoulder_pitch": -0.1, "right_elbow": -1.4},
+    "comer": {"right_shoulder_pitch": -0.6, "right_elbow": -1.1, "right_wrist_pitch": 0.8},
+    "casa": {"left_shoulder_pitch": -1.4, "right_shoulder_pitch": -1.4},
+    "escuela": {"right_shoulder_pitch": 0.4, "right_elbow": -0.9},
+    "familia": {"left_shoulder_pitch": -0.7, "right_shoulder_pitch": -0.7},
+    "venir": {"right_shoulder_pitch": -0.3, "right_elbow": -1.3},
+    "donde": {"right_shoulder_pitch": 0.7, "right_elbow": -0.8},
+    "nombre": {"right_shoulder_pitch": -0.3, "right_elbow": -1.5},
+}
+
+
+def _aplicar_perfil_visual(palabra, secuencia):
+    perfil = _PERFILES_VISUALES[palabra]
+    return [
+        {**frame, **perfil} if indice == 0 else frame
+        for indice, frame in enumerate(secuencia)
+    ]
+
+
+DICCIONARIO_SENAS = {
+    palabra: _aplicar_perfil_visual(palabra, _agregar_frames_intermedios(secuencia))
+    for palabra, secuencia in DICCIONARIO_SENAS.items()
+}
 
 
 class Ejecutor:
-    """Traduce intenciones a movimientos del robot."""
-
     def __init__(self, robot, mostrar=True):
         self.robot = robot
         self.mostrar = mostrar
         self.perfil = robot.perfil
 
-    # ---------- lo que usa el agente ----------
     def ejecutar(self, tipo, parametros):
-        """Manda la intencion al robot. Devuelve un texto con lo que paso."""
         parametros = parametros or {}
         try:
             if tipo == "MOVER":
@@ -73,60 +264,65 @@ class Ejecutor:
                 self.robot.detenerse()
                 return "detenido"
             if tipo == "SALUDO":
-                self.robot.saludar()
-                return "saludo"
+                return self._ejecutar_senas({"texto_senas": "hola"})
+            if tipo == "SENAS":
+                return self._ejecutar_senas(parametros)
             if tipo == "CONSULTAR_ESTADO":
                 e = self.robot.verificar_estado()
                 return f"estado: {e}"
         except ErrorDeSeguridad as exc:
-            # Ultima red: si algo llego hasta aca fuera de limite, el robot lo
-            # rechaza igual. Que pase significa que el validador dejo pasar
-            # algo que no debia.
             return f"RECHAZADO POR EL ROBOT: {exc}"
         return f"no se como ejecutar {tipo}"
 
-    # ---------- conversion a velocidad y tiempo ----------
+    def _ejecutar_senas(self, p):
+        texto = p.get("texto_senas", "").lower()
+        texto = unicodedata.normalize("NFD", texto)
+        texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+        palabras = re.findall(r"[a-z]+", texto)
+        secuencia_total = []
+        palabras_no_registradas = []
+
+        for palabra in palabras:
+            if palabra in DICCIONARIO_SENAS:
+                secuencia_total.extend(DICCIONARIO_SENAS[palabra])
+            elif palabra not in {"y", "e"} and palabra not in palabras_no_registradas:
+                palabras_no_registradas.append(palabra)
+
+        if not secuencia_total:
+            self._log(f"No se encontraron señas registradas para: '{texto}'")
+            return f"sin señas registradas para '{texto}'"
+
+        self._log(f"Ejecutando {len(secuencia_total)} keyframes de señas para: '{texto}'")
+        self.robot.ejecutar_secuencia_senas(secuencia_total, duracion_step=0.35)
+        mensaje = f"señas ejecutadas para '{texto}'"
+        if palabras_no_registradas:
+            mensaje += "; sin seña cargada para: " + ", ".join(palabras_no_registradas)
+        return mensaje
+
     def _mover(self, p):
-        # La gente habla en metros; el robot entiende velocidad y tiempo.
         distancia = float(p.get("distancia_m", 0.5))
         velocidad = float(p.get("velocidad_ms", self.perfil.velocidad_max))
         velocidad = min(abs(velocidad), self.perfil.velocidad_max)
         if velocidad <= 0:
-            return "velocidad cero: no hay nada que ejecutar"
+            return "velocidad cero"
 
         signo = -1.0 if p.get("direccion") == "atras" else 1.0
         tiempo_total = abs(distancia) / velocidad
-        tramos = partir_en_tramos(tiempo_total, self.perfil.duracion_max)
-
-        self._log(f"{distancia:g} m a {velocidad:g} m/s = {tiempo_total:.2f} s"
-                  + (f", partido en {len(tramos)} tramos" if len(tramos) > 1 else ""))
-        for i, t in enumerate(tramos, 1):
-            self._log(f"  tramo {i}/{len(tramos)}: avanzar({signo * velocidad:+.2f}, {t:.2f})")
-            self.robot.avanzar(velocidad=signo * velocidad, tiempo=t)
-        return f"avanzo {distancia:g} m en {len(tramos)} orden(es)"
+        self.robot.avanzar(velocidad=signo * velocidad, tiempo=tiempo_total)
+        return f"avanzo {distancia:g} m"
 
     def _girar(self, p):
-        # La gente habla en grados; el robot entiende velocidad y tiempo.
         grados = float(p.get("angulo_deg", 90))
         velocidad = float(p.get("velocidad_giro", self.perfil.velocidad_angular_max))
         velocidad = min(abs(velocidad), self.perfil.velocidad_angular_max)
         if velocidad <= 0:
             return "velocidad de giro cero"
 
-        # El SIGNO marca el sentido: positivo izquierda, negativo derecha.
         signo = -1.0 if p.get("direccion") == "derecha" else 1.0
         radianes = math.radians(abs(grados))
         tiempo_total = radianes / velocidad
-        tramos = partir_en_tramos(tiempo_total, self.perfil.duracion_max)
-
-        lado = "derecha" if signo < 0 else "izquierda"
-        self._log(f"{grados:g} grados = {radianes:.4f} rad a la {lado}, "
-                  f"a {velocidad:g} rad/s = {tiempo_total:.2f} s"
-                  + (f", partido en {len(tramos)} tramos" if len(tramos) > 1 else ""))
-        for i, t in enumerate(tramos, 1):
-            self._log(f"  tramo {i}/{len(tramos)}: girar({signo * velocidad:+.2f}, {t:.2f})")
-            self.robot.girar(velocidad=signo * velocidad, tiempo=t)
-        return f"giro {grados:g} grados a la {lado} en {len(tramos)} orden(es)"
+        self.robot.girar(velocidad=signo * velocidad, tiempo=tiempo_total)
+        return f"giro {grados:g} grados"
 
     def _log(self, texto):
         if self.mostrar:

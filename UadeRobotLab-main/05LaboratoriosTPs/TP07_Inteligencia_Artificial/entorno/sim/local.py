@@ -149,6 +149,13 @@ class ServidorLocal(socketserver.ThreadingTCPServer):
         self.mundo.detener()
         return {"ok": True}
 
+    def _orden_pose_articular(self, pedido: dict) -> dict:
+        self.mundo.pose_articular(
+            pedido.get("articulaciones", {}),
+            float(pedido.get("duracion", 0.5)),
+        )
+        return {"ok": True}
+
     def _orden_gesto(self, pedido: dict) -> dict:
         nombre = pedido.get("nombre", "")
         from .acciones import exigir_permitida
@@ -253,6 +260,14 @@ class ClienteLocal:
 
     def StopMove(self) -> int:
         return self._codigo(self._pedir({"orden": "detener"}))
+
+    def MoverArticulaciones(self, articulaciones: dict,
+                            duracion: float = 0.5) -> int:
+        return self._codigo(self._pedir({
+            "orden": "pose_articular",
+            "articulaciones": articulaciones,
+            "duracion": duracion,
+        }))
 
     def WaveHand(self) -> int:
         return self._codigo(self._pedir({"orden": "gesto", "nombre": "saludo"}))
