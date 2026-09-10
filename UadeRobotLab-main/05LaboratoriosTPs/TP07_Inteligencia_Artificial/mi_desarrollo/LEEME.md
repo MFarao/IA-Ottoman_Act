@@ -1,5 +1,8 @@
 # Tu carpeta de trabajo — TP07
 
+> **Guía fácil de todo el sistema LSA (recomendado leer primero):**  
+> [`../COMO_FUNCIONA.md`](../COMO_FUNCIONA.md)
+
 | Archivo | Para qué |
 |---|---|
 | `mi_tp07.py` | Acá escribís tu agente. **Es lo que entregás.** |
@@ -7,6 +10,7 @@
 | `evaluar.py` | Dado hecho. Calcula tu accuracy y la tabla de fallos. |
 | `ejecutor.py` | Dado hecho. Convierte a velocidad y tiempo, y manda al robot. |
 | `robot.py` | No lo toques. |
+| `vocabulario_dataset.py` | Las 8 palabras del dataset LSA + alias. |
 | `dataset.csv` | **Extensión**: 5 ejemplos para que veas el formato. Completalo vos. |
 | `entrenar.py` | Dado hecho. Entrena con tu dataset y te da las métricas. |
 
