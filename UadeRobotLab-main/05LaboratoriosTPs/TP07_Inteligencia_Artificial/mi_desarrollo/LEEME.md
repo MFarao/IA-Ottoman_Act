@@ -37,6 +37,31 @@ Con el robot conectado, después de la evaluación podés escribirle órdenes:
 
 Es la mejor forma de encontrar los casos que tu agente no cubre.
 
+## Modo voz: speech-to-text
+
+El modo voz escucha una frase en español, la convierte a texto y la manda por
+el mismo pipeline. Si la frase contiene palabras del diccionario de señas, el
+G1 ejecuta esas señas en el simulador.
+
+Instalá las librerías una sola vez desde la carpeta `mi_desarrollo`:
+
+```powershell
+py -3 -m pip install -r requirements-voz.txt
+```
+
+Con el G1 ya abierto, ejecutá:
+
+```powershell
+py -3 mi_desarrollo/mi_tp07.py --voz
+```
+
+También podés usar `EJECUTAR_MI_CODIGO.bat --voz`. El programa calibra el ruido
+ambiente al inicio; después decí, por ejemplo, `hola gracias`. Para terminar,
+decí `salir` o presioná `Ctrl+C`.
+
+El reconocimiento usa el servicio de Google y requiere internet. El modo de
+texto escrito sigue disponible sin instalar estas librerías.
+
 ## Extensión: entrenar un modelo (nivel 2)
 
 Con reglas alcanza para aprobar. Si querés ir más lejos:

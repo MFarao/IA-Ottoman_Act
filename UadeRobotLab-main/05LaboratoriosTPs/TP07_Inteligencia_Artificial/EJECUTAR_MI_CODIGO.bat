@@ -3,6 +3,9 @@ REM Ejecuta tu programa contra el simulador que ya tenes abierto.
 cd /d "%~dp0"
 
 set ARCHIVO=%1
+set "MODO_VOZ="
+if /I "%ARCHIVO%"=="--voz" set "MODO_VOZ=--voz"
+if /I "%ARCHIVO%"=="--voz" set "ARCHIVO="
 if "%ARCHIVO%"=="" set ARCHIVO=mi_desarrollo\mi_tp07.py
 
 REM ============================================================
@@ -90,6 +93,6 @@ if not exist "%ARCHIVO%" (
   exit /b 1
 )
 
-"%PYTHON%" %PYARGS% "%ARCHIVO%"
+"%PYTHON%" %PYARGS% "%ARCHIVO%" %MODO_VOZ%
 echo.
 pause

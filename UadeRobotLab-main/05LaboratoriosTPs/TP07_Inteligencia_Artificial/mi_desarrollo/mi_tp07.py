@@ -20,6 +20,22 @@ from evaluar import evaluar
 from ejecutor import DICCIONARIO_SENAS, Ejecutor
 
 
+def _sin_acentos(texto):
+    """Devuelve el texto en minusculas, sin diferencias por tildes."""
+    texto = unicodedata.normalize("NFD", texto.lower())
+    return "".join(
+        caracter for caracter in texto
+        if unicodedata.category(caracter) != "Mn"
+    )
+
+
+def _normalizar_comando(texto):
+    """Normaliza tildes y alias habituales antes de clasificar la orden."""
+    texto = _sin_acentos(texto)
+    texto = re.sub(r"\badios\b", "chau", texto)
+    return re.sub(r"\bdia\b", "dias", texto)
+
+
 class ClasificadorIntencion:
     """Decide QUE quiere el usuario, incluyendo la interpretacion de senas."""
 
@@ -30,18 +46,16 @@ class ClasificadorIntencion:
         self.modelo = None
 
     def clasificar(self, texto):
-        texto_l = texto.lower().strip()
+        texto_l = _normalizar_comando(texto).strip()
 
         # Patron para detectar peticiones de lenguaje de senas
-        if re.search(r"\b(seña|señas|lenguaje de señas|traduc\w*|interpreta|dec\w*|gesto)\b", texto_l):
+        if re.search(r"\b(sena|senas|lenguaje de senas|traduc\w*|interpreta|dec\w*|gesto)\b", texto_l):
             return "SENAS"
         if re.fullmatch(r"(gracias|chau)", texto_l):
             return "SENAS"
-        texto_sin_acentos = "".join(
-            caracter for caracter in unicodedata.normalize("NFD", texto_l)
-            if unicodedata.category(caracter) != "Mn"
-        )
-        if texto_sin_acentos in DICCIONARIO_SENAS and texto_sin_acentos != "hola":
+        if texto_l in DICCIONARIO_SENAS and texto_l != "hola":
+            return "SENAS"
+        if re.search(r"\b(que|cual) dias es hoy\b", texto_l):
             return "SENAS"
         palabras_senas = re.findall(
             r"\b(hola|gracias|chau|por|favor|ayuda|amigo|buenos|dias|"
@@ -74,7 +88,7 @@ class ExtractorParametros:
 
     def extraer(self, texto, tipo):
         p = {}
-        texto_l = texto.lower()
+        texto_l = _normalizar_comando(texto)
 
         if tipo == "SENAS":
             # Extrae la frase encerrada entre comillas o remueve palabras de activacion
@@ -83,9 +97,10 @@ class ExtractorParametros:
                 p["texto_senas"] = match_comillas.group(1)
             else:
                 limpio = re.sub(
-                    r"\b(hacé|hace|haz|en|lenguaje|de|señas|seña|traducí|traducime|"
-                    r"traduce|traducir|interpreta|decí|diga|esta|este|oración|"
-                    r"oracion|frase|a|al|la|el|una|un)\b",
+                    r"\b(hace|haz|en|lenguaje|de|senas|sena|traduci|traduce|traducime|"
+                    r"traducir|interpreta|dice|diga|esta|este|oracion|frase|"
+                    r"que|cual|es|hoy|"
+                    r"a|al|la|el|una|un)\b",
                     "",
                     texto_l,
                 )
@@ -120,7 +135,7 @@ class ValidadorSeguridad:
         self.perfil = perfil
 
     def validar(self, texto, tipo, parametros):
-        texto_l = texto.lower()
+        texto_l = _sin_acentos(texto)
         for peligro in self.PALABRAS_PELIGROSAS:
             if peligro in texto_l:
                 return False, f"Comando bloqueado por contener palabra peligrosa: '{peligro}'"
@@ -207,6 +222,7 @@ def main():
     # Modo sin robot: solo evalua los 25 casos. Sirve para trabajar el
     # clasificador sin tener el simulador abierto.
     sin_robot = "--sin-robot" in sys.argv
+    modo_voz = "--voz" in sys.argv
 
     robot_cliente = None
     if not sin_robot:
@@ -215,16 +231,34 @@ def main():
 
     try:
         agente = AgenteRobot(robot_cliente)
-        evaluar(agente)
+        # La evaluacion envia los casos al ejecutor; solo debe correr sin robot.
+        if sin_robot:
+            evaluar(agente)
 
         if robot_cliente is not None:
-            print("\n  Escribi ordenes para el robot. Enter vacio para salir.")
+            reconocedor = None
+            if modo_voz:
+                from speech_to_text import ReconocedorVoz
+
+                reconocedor = ReconocedorVoz()
+                reconocedor.calibrar()
+                print("\n  Modo voz activo. Deci 'salir' para terminar.")
+            else:
+                print("\n  Escribi ordenes para el robot. Enter vacio para salir.")
+
             while True:
                 try:
-                    texto = input("\n  > ").strip()
+                    texto = (reconocedor.escuchar() if reconocedor
+                             else input("\n  > ").strip())
                 except (EOFError, KeyboardInterrupt):
                     break
                 if not texto:
+                    if reconocedor:
+                        continue
+                    break
+                if reconocedor and _sin_acentos(texto).strip() in {
+                    "salir", "terminar", "adios"
+                }:
                     break
                 r = agente.procesar(texto)
                 print(f"    {r['tipo']}  {r.get('mensaje', '')}")
