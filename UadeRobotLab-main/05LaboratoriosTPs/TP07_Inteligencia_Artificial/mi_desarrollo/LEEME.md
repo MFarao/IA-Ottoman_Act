@@ -62,6 +62,43 @@ decí `salir` o presioná `Ctrl+C`.
 El reconocimiento usa el servicio de Google y requiere internet. El modo de
 texto escrito sigue disponible sin instalar estas librerías.
 
+## Dataset chico: español argentino → señas
+
+Hay un vocabulario fijo de **8 palabras** en `vocabulario_dataset.py`:
+
+`hola`, `gracias`, `chau`, `si`, `no`, `ayuda`, `agua`, `amigo`
+
+Con el simulador abierto:
+
+```bash
+# Escribís las palabras y el G1 las firma
+python3 mi_desarrollo/mi_tp07.py --dataset
+
+# Primero recorre las 8 senas y despues queda interactivo
+python3 mi_desarrollo/mi_tp07.py --dataset --demo
+
+# Mejor: las escucha por microfono (es-AR) y las traduce a senas
+python3 mi_desarrollo/mi_tp07.py --dataset --voz
+```
+
+Si decís o escribís algo fuera del vocabulario, te avisa y lista las palabras
+válidas. Alias como `chau`/`adios` o `si`/`dale` también entran.
+
+## Capa robot real (Inspire) — `tp07_lsa/`
+
+Para la prueba con el G1 físico (mano Inspire de 5 dedos) usá el paquete
+nuevo **sin borrar** este flujo de simulación:
+
+```bash
+cd ../tp07_lsa
+python3 main.py --modo simulacion --demo
+python3 main.py --modo real --interfaz eth0 --demo
+```
+
+Detalle de instalación DDS/SDK y supuestos a confirmar: `../tp07_lsa/README.md`.
+
+También: `python3 mi_tp07.py --modo real --interfaz eth0 --palabra hola`.
+
 ## Extensión: entrenar un modelo (nivel 2)
 
 Con reglas alcanza para aprobar. Si querés ir más lejos:

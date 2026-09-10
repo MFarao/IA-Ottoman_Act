@@ -18,6 +18,11 @@ import unicodedata
 from robot import Robot
 from evaluar import evaluar
 from ejecutor import DICCIONARIO_SENAS, Ejecutor
+from vocabulario_dataset import (
+    VOCABULARIO_AR,
+    frase_para_senas,
+    listar_vocabulario,
+)
 
 
 def _sin_acentos(texto):
@@ -214,15 +219,80 @@ def _perfil_por_defecto():
 
 
 # =====================================================================
+#  MODO DATASET: 8 palabras AR -> senas (texto o voz)
+# =====================================================================
+def _procesar_como_senas(agente, frase):
+    """Fuerza la intencion SENAS con la frase canonica del dataset."""
+    return agente.procesar(f'traduci "{frase}"')
+
+
+def _correr_demo_dataset(agente):
+    """Ejecuta las 8 senas del vocabulario, una detras de otra."""
+    print("\n  Demo del dataset (una sena por palabra):")
+    print(f"  Vocabulario: {listar_vocabulario()}")
+    for palabra in VOCABULARIO_AR:
+        print(f"\n  -> {palabra}")
+        r = _procesar_como_senas(agente, palabra)
+        print(f"    {r['tipo']}  {r.get('mensaje', '')}")
+    print("\n  Demo terminada.")
+
+
+def _bucle_dataset(agente, reconocedor=None):
+    """Escucha o lee palabras del dataset y las traduce a senas."""
+    print(f"\n  Dataset LSA ({len(VOCABULARIO_AR)} palabras): {listar_vocabulario()}")
+    if reconocedor:
+        print("  Modo voz: di una o mas palabras del vocabulario.")
+        print("  Deci 'salir' para terminar.")
+    else:
+        print("  Escribi una palabra del vocabulario (o varias). Enter vacio sale.")
+        print("  Tip: podes sumar --voz para escucharlas por microfono.")
+
+    while True:
+        try:
+            texto = (reconocedor.escuchar() if reconocedor
+                     else input("\n  > ").strip())
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not texto:
+            if reconocedor:
+                continue
+            break
+        if _sin_acentos(texto).strip() in {"salir", "terminar", "adios"}:
+            break
+
+        frase = frase_para_senas(texto)
+        if frase is None:
+            print(f"    No hay palabras del dataset en: '{texto}'")
+            print(f"    Usa: {listar_vocabulario()}")
+            continue
+
+        print(f"    Reconocido para senas: {frase}")
+        r = _procesar_como_senas(agente, frase)
+        print(f"    {r['tipo']}  {r.get('mensaje', '')}")
+
+
+# =====================================================================
 #  PROGRAMA PRINCIPAL - no hace falta que lo toques
 # =====================================================================
 def main():
     import sys
 
+    # Atajo: delegar al paquete LSA (sim / real Inspire) sin romper este TP.
+    if "--modo" in sys.argv:
+        from pathlib import Path
+        import runpy
+
+        lsa_main = Path(__file__).resolve().parents[1] / "tp07_lsa" / "main.py"
+        sys.argv = [str(lsa_main)] + sys.argv[1:]
+        runpy.run_path(str(lsa_main), run_name="__main__")
+        return
+
     # Modo sin robot: solo evalua los 25 casos. Sirve para trabajar el
     # clasificador sin tener el simulador abierto.
     sin_robot = "--sin-robot" in sys.argv
     modo_voz = "--voz" in sys.argv
+    modo_dataset = "--dataset" in sys.argv
+    demo_dataset = "--demo" in sys.argv
 
     robot_cliente = None
     if not sin_robot:
@@ -234,6 +304,9 @@ def main():
         # La evaluacion envia los casos al ejecutor; solo debe correr sin robot.
         if sin_robot:
             evaluar(agente)
+            if modo_dataset:
+                print(f"\n  Vocabulario dataset (sin robot): {listar_vocabulario()}")
+            return
 
         if robot_cliente is not None:
             reconocedor = None
@@ -242,6 +315,14 @@ def main():
 
                 reconocedor = ReconocedorVoz()
                 reconocedor.calibrar()
+
+            if modo_dataset:
+                if demo_dataset:
+                    _correr_demo_dataset(agente)
+                _bucle_dataset(agente, reconocedor)
+                return
+
+            if modo_voz:
                 print("\n  Modo voz activo. Deci 'salir' para terminar.")
             else:
                 print("\n  Escribi ordenes para el robot. Enter vacio para salir.")

@@ -32,13 +32,24 @@ echo
 # Se prueban en orden y gana el PRIMERO que tenga MuJoCo. Los nombres con
 # version explicita estan porque en algunas distros `python3` apunta a una
 # version vieja y la buena esta al lado.
+#
+# En macOS MuJoCo exige `mjpython` para la ventana 3D (launch_passive).
 CANDIDATOS="python3 python3.13 python3.12 python3.11 python3.10 python"
 [ -x "$HOME/.venvs/unitree/bin/python" ] && CANDIDATOS="$HOME/.venvs/unitree/bin/python $CANDIDATOS"
+[ -x "$HOME/Library/Python/3.9/bin/mjpython" ] && CANDIDATOS="$HOME/Library/Python/3.9/bin/mjpython $CANDIDATOS"
+[ -x "$HOME/Library/Python/3.10/bin/mjpython" ] && CANDIDATOS="$HOME/Library/Python/3.10/bin/mjpython $CANDIDATOS"
+[ -x "$HOME/Library/Python/3.11/bin/mjpython" ] && CANDIDATOS="$HOME/Library/Python/3.11/bin/mjpython $CANDIDATOS"
+[ -x "$HOME/Library/Python/3.12/bin/mjpython" ] && CANDIDATOS="$HOME/Library/Python/3.12/bin/mjpython $CANDIDATOS"
+command -v mjpython >/dev/null 2>&1 && CANDIDATOS="mjpython $CANDIDATOS"
 
 PYTHON=""; PRIMERO=""
 for PY in $CANDIDATOS; do
   command -v "$PY" >/dev/null 2>&1 || [ -x "$PY" ] || continue
   [ -z "$PRIMERO" ] && PRIMERO="$PY"
+  # mjpython es el wrapper de MuJoCo: priorizarlo si existe
+  case "$PY" in
+    *mjpython*) PYTHON="$PY"; break ;;
+  esac
   if "$PY" -c "import mujoco" >/dev/null 2>&1; then PYTHON="$PY"; break; fi
 done
 [ -z "$PYTHON" ] && PYTHON="$PRIMERO"

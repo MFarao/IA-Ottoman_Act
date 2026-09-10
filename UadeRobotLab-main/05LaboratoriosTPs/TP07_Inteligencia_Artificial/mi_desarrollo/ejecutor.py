@@ -37,33 +37,72 @@ except ImportError:
     class ErrorDeSeguridad(ValueError):
         pass
 
-# Vocabulario inicial de LSA representado como secuencias de keyframes.
-# Cada palabra tiene varios frames para que la traduccion sea una animacion.
+# Vocabulario LSA como keyframes de brazo/muneca (G1) + dedos.
+# Afinado para maximizar contraste visual entre las 8 palabras del dataset.
 DICCIONARIO_SENAS = {
+    # HOLA: mano abierta a la sien, arco corto hacia adelante.
     "hola": [
-        {"right_shoulder_pitch": -1.8, "right_elbow": -0.8, "right_wrist_pitch": -0.7},
-        {"right_shoulder_pitch": -1.2, "right_elbow": -0.2, "right_wrist_pitch": -0.7},
-        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0, "right_wrist_pitch": 0.0}
-    ],
-    "gracias": [
-        {"right_shoulder_pitch": -0.35, "right_shoulder_roll": -0.55,
-         "right_shoulder_yaw": -0.7, "right_elbow": -1.0,
-         "right_wrist_pitch": 0.8, "right_wrist_yaw": 0.0},
-        {"right_shoulder_pitch": -0.05, "right_shoulder_roll": -0.25,
-         "right_shoulder_yaw": -0.45, "right_elbow": -0.65,
-         "right_wrist_pitch": 0.45, "right_wrist_yaw": 0.0},
-        {"right_shoulder_pitch": 0.55, "right_shoulder_roll": 0.15,
-         "right_shoulder_yaw": 0.0, "right_elbow": -0.3,
-         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0},
+        {"right_shoulder_pitch": -1.75, "right_shoulder_roll": -1.05,
+         "right_shoulder_yaw": -0.55, "right_elbow": -1.35,
+         "right_wrist_pitch": 0.55, "right_wrist_yaw": 0.35, "right_wrist_roll": 0.15},
+        {"right_shoulder_pitch": -1.55, "right_shoulder_roll": -0.85,
+         "right_shoulder_yaw": -0.35, "right_elbow": -1.05,
+         "right_wrist_pitch": 0.35, "right_wrist_yaw": 0.2, "right_wrist_roll": 0.05},
+        {"right_shoulder_pitch": -1.2, "right_shoulder_roll": -0.45,
+         "right_shoulder_yaw": 0.05, "right_elbow": -0.55,
+         "right_wrist_pitch": 0.1, "right_wrist_yaw": 0.0, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.7, "right_shoulder_roll": -0.2,
+         "right_shoulder_yaw": 0.15, "right_elbow": -0.25,
+         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0, "right_wrist_roll": 0.0},
         {"right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
          "right_shoulder_yaw": 0.0, "right_elbow": 0.0,
-         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0}
+         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0, "right_wrist_roll": 0.0},
     ],
+    # GRACIAS: palma MUY cerca de la cara (exagerado para el sim) y entrega.
+    "gracias": [
+        # Preparacion: mano sube hacia la cara
+        {"right_shoulder_pitch": -0.35, "right_shoulder_roll": -0.55,
+         "right_shoulder_yaw": -1.0, "right_elbow": -1.65,
+         "right_wrist_pitch": 1.2, "right_wrist_yaw": 0.45, "right_wrist_roll": 0.2},
+        # Menton: codo muy flexionado, muneca hacia arriba (contacto visual)
+        {"right_shoulder_pitch": -0.25, "right_shoulder_roll": -0.5,
+         "right_shoulder_yaw": -1.15, "right_elbow": -1.75,
+         "right_wrist_pitch": 1.35, "right_wrist_yaw": 0.55, "right_wrist_roll": 0.25},
+        # Hold en menton
+        {"right_shoulder_pitch": -0.25, "right_shoulder_roll": -0.5,
+         "right_shoulder_yaw": -1.15, "right_elbow": -1.75,
+         "right_wrist_pitch": 1.35, "right_wrist_yaw": 0.55, "right_wrist_roll": 0.25},
+        # Entrega adelante-abajo
+        {"right_shoulder_pitch": 0.05, "right_shoulder_roll": 0.05,
+         "right_shoulder_yaw": -0.2, "right_elbow": -0.7,
+         "right_wrist_pitch": 0.25, "right_wrist_yaw": 0.1, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.45, "right_shoulder_roll": 0.25,
+         "right_shoulder_yaw": 0.25, "right_elbow": -0.2,
+         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0, "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
+         "right_shoulder_yaw": 0.0, "right_elbow": 0.0,
+         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0, "right_wrist_roll": 0.0},
+    ],
+    # CHAU: brazo ALTO + wrist_roll (distinto de "no").
     "chau": [
-        {"right_shoulder_pitch": -1.45, "right_elbow": -0.45, "right_wrist_roll": 0.8},
-        {"right_shoulder_pitch": -1.45, "right_elbow": -0.45, "right_wrist_roll": -0.8},
-        {"right_shoulder_pitch": -1.45, "right_elbow": -0.45, "right_wrist_roll": 0.8},
-        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+        {"right_shoulder_pitch": -1.55, "right_shoulder_roll": -0.55,
+         "right_elbow": -0.35, "right_wrist_roll": 1.1, "right_wrist_yaw": 0.15,
+         "right_wrist_pitch": 0.2},
+        {"right_shoulder_pitch": -1.55, "right_shoulder_roll": -0.55,
+         "right_elbow": -0.35, "right_wrist_roll": -1.1, "right_wrist_yaw": -0.15,
+         "right_wrist_pitch": 0.2},
+        {"right_shoulder_pitch": -1.55, "right_shoulder_roll": -0.55,
+         "right_elbow": -0.35, "right_wrist_roll": 1.1, "right_wrist_yaw": 0.15,
+         "right_wrist_pitch": 0.2},
+        {"right_shoulder_pitch": -1.55, "right_shoulder_roll": -0.55,
+         "right_elbow": -0.35, "right_wrist_roll": -1.1, "right_wrist_yaw": -0.15,
+         "right_wrist_pitch": 0.2},
+        {"right_shoulder_pitch": -1.55, "right_shoulder_roll": -0.55,
+         "right_elbow": -0.35, "right_wrist_roll": 1.1, "right_wrist_yaw": 0.15,
+         "right_wrist_pitch": 0.2},
+        {"right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
+         "right_elbow": 0.0, "right_wrist_roll": 0.0, "right_wrist_yaw": 0.0,
+         "right_wrist_pitch": 0.0},
     ],
     "por": [
         {"right_shoulder_pitch": -0.65, "right_elbow": -1.2, "right_wrist_yaw": -0.8},
@@ -81,17 +120,59 @@ DICCIONARIO_SENAS = {
         {"left_shoulder_pitch": 0.0, "left_elbow": 0.0, "left_wrist_pitch": 0.0,
          "right_shoulder_pitch": 0.0, "right_elbow": 0.0, "right_wrist_pitch": 0.0}
     ],
+    # AYUDA: palma izq + punio der; suben juntas.
     "ayuda": [
-        {"right_shoulder_pitch": -1.4, "right_elbow": -0.3, "right_wrist_roll": 0.0},
-        {"right_shoulder_pitch": -1.0, "right_elbow": 0.1, "right_wrist_roll": 0.0},
-        {"right_shoulder_pitch": -1.4, "right_elbow": -0.3, "right_wrist_roll": 0.0},
-        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+        {"left_shoulder_pitch": -0.45, "left_shoulder_roll": 0.55,
+         "left_elbow": -1.35, "left_wrist_pitch": 0.85, "left_wrist_roll": 0.2,
+         "right_shoulder_pitch": -0.55, "right_shoulder_roll": -0.55,
+         "right_elbow": -1.5, "right_wrist_pitch": -0.35, "right_wrist_roll": 0.0},
+        {"left_shoulder_pitch": -0.75, "left_shoulder_roll": 0.4,
+         "left_elbow": -1.15, "left_wrist_pitch": 0.7, "left_wrist_roll": 0.15,
+         "right_shoulder_pitch": -0.85, "right_shoulder_roll": -0.4,
+         "right_elbow": -1.3, "right_wrist_pitch": -0.25, "right_wrist_roll": 0.0},
+        {"left_shoulder_pitch": -1.15, "left_shoulder_roll": 0.25,
+         "left_elbow": -0.85, "left_wrist_pitch": 0.55, "left_wrist_roll": 0.1,
+         "right_shoulder_pitch": -1.25, "right_shoulder_roll": -0.25,
+         "right_elbow": -1.0, "right_wrist_pitch": -0.15, "right_wrist_roll": 0.0},
+        {"left_shoulder_pitch": -1.45, "left_shoulder_roll": 0.15,
+         "left_elbow": -0.55, "left_wrist_pitch": 0.4, "left_wrist_roll": 0.05,
+         "right_shoulder_pitch": -1.5, "right_shoulder_roll": -0.15,
+         "right_elbow": -0.7, "right_wrist_pitch": -0.05, "right_wrist_roll": 0.0},
+        {"left_shoulder_pitch": -1.45, "left_shoulder_roll": 0.15,
+         "left_elbow": -0.55, "left_wrist_pitch": 0.4,
+         "right_shoulder_pitch": -1.5, "right_shoulder_roll": -0.15,
+         "right_elbow": -0.7, "right_wrist_pitch": -0.05},
+        {"left_shoulder_pitch": 0.0, "left_shoulder_roll": 0.0,
+         "left_elbow": 0.0, "left_wrist_pitch": 0.0, "left_wrist_roll": 0.0,
+         "right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
+         "right_elbow": 0.0, "right_wrist_pitch": 0.0, "right_wrist_roll": 0.0},
     ],
+    # AMIGO: manos al centro, ganchos, alternan altura.
     "amigo": [
-        {"right_shoulder_pitch": -1.0, "right_elbow": -0.8, "right_wrist_roll": 0.0},
-        {"right_shoulder_pitch": -0.6, "right_elbow": -0.45, "right_wrist_roll": 0.5},
-        {"right_shoulder_pitch": -1.0, "right_elbow": -0.8, "right_wrist_roll": 0.0},
-        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+        {"left_shoulder_pitch": -0.85, "left_shoulder_roll": 0.65,
+         "left_elbow": -1.25, "left_wrist_yaw": 0.75, "left_wrist_pitch": 0.25,
+         "right_shoulder_pitch": -0.65, "right_shoulder_roll": -0.65,
+         "right_elbow": -1.25, "right_wrist_yaw": -0.75, "right_wrist_pitch": -0.15},
+        {"left_shoulder_pitch": -0.65, "left_shoulder_roll": 0.55,
+         "left_elbow": -1.15, "left_wrist_yaw": 0.55, "left_wrist_pitch": -0.15,
+         "right_shoulder_pitch": -0.85, "right_shoulder_roll": -0.55,
+         "right_elbow": -1.15, "right_wrist_yaw": -0.55, "right_wrist_pitch": 0.25},
+        {"left_shoulder_pitch": -0.85, "left_shoulder_roll": 0.65,
+         "left_elbow": -1.25, "left_wrist_yaw": 0.75, "left_wrist_pitch": 0.25,
+         "right_shoulder_pitch": -0.65, "right_shoulder_roll": -0.65,
+         "right_elbow": -1.25, "right_wrist_yaw": -0.75, "right_wrist_pitch": -0.15},
+        {"left_shoulder_pitch": -0.65, "left_shoulder_roll": 0.55,
+         "left_elbow": -1.15, "left_wrist_yaw": 0.55, "left_wrist_pitch": -0.15,
+         "right_shoulder_pitch": -0.85, "right_shoulder_roll": -0.55,
+         "right_elbow": -1.15, "right_wrist_yaw": -0.55, "right_wrist_pitch": 0.25},
+        {"left_shoulder_pitch": -0.75, "left_shoulder_roll": 0.6,
+         "left_elbow": -1.2, "left_wrist_yaw": 0.65,
+         "right_shoulder_pitch": -0.75, "right_shoulder_roll": -0.6,
+         "right_elbow": -1.2, "right_wrist_yaw": -0.65},
+        {"left_shoulder_pitch": 0.0, "left_shoulder_roll": 0.0,
+         "left_elbow": 0.0, "left_wrist_yaw": 0.0, "left_wrist_pitch": 0.0,
+         "right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
+         "right_elbow": 0.0, "right_wrist_yaw": 0.0, "right_wrist_pitch": 0.0},
     ],
     "buenos": [
         {"right_shoulder_pitch": -1.5, "right_elbow": -0.8, "right_wrist_roll": 0.0},
@@ -103,17 +184,41 @@ DICCIONARIO_SENAS = {
         {"right_shoulder_pitch": -0.75, "right_elbow": -0.2, "right_wrist_roll": 0.0},
         {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
     ],
+    # SI: punio, asiente fuerte.
     "si": [
-        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": 0.0},
-        {"right_shoulder_pitch": -1.1, "right_elbow": 0.1, "right_wrist_roll": 0.0},
-        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": 0.0},
-        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+        {"right_shoulder_pitch": -0.95, "right_shoulder_roll": -0.4,
+         "right_elbow": -1.5, "right_wrist_pitch": 0.75, "right_wrist_roll": 0.1},
+        {"right_shoulder_pitch": -0.7, "right_shoulder_roll": -0.3,
+         "right_elbow": -1.0, "right_wrist_pitch": -0.55, "right_wrist_roll": 0.1},
+        {"right_shoulder_pitch": -0.95, "right_shoulder_roll": -0.4,
+         "right_elbow": -1.5, "right_wrist_pitch": 0.75, "right_wrist_roll": 0.1},
+        {"right_shoulder_pitch": -0.7, "right_shoulder_roll": -0.3,
+         "right_elbow": -1.0, "right_wrist_pitch": -0.55, "right_wrist_roll": 0.1},
+        {"right_shoulder_pitch": -0.95, "right_shoulder_roll": -0.4,
+         "right_elbow": -1.5, "right_wrist_pitch": 0.75, "right_wrist_roll": 0.1},
+        {"right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
+         "right_elbow": 0.0, "right_wrist_pitch": 0.0, "right_wrist_roll": 0.0},
     ],
+    # NO: mas bajo que chau; solo wrist_yaw + indice.
     "no": [
-        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": 0.8},
-        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": -0.8},
-        {"right_shoulder_pitch": -1.1, "right_elbow": -0.5, "right_wrist_roll": 0.8},
-        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+        {"right_shoulder_pitch": -0.7, "right_shoulder_roll": -0.25,
+         "right_elbow": -1.25, "right_wrist_yaw": 0.95, "right_wrist_pitch": 0.15,
+         "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.7, "right_shoulder_roll": -0.25,
+         "right_elbow": -1.25, "right_wrist_yaw": -0.95, "right_wrist_pitch": 0.15,
+         "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.7, "right_shoulder_roll": -0.25,
+         "right_elbow": -1.25, "right_wrist_yaw": 0.95, "right_wrist_pitch": 0.15,
+         "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.7, "right_shoulder_roll": -0.25,
+         "right_elbow": -1.25, "right_wrist_yaw": -0.95, "right_wrist_pitch": 0.15,
+         "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": -0.7, "right_shoulder_roll": -0.25,
+         "right_elbow": -1.25, "right_wrist_yaw": 0.95, "right_wrist_pitch": 0.15,
+         "right_wrist_roll": 0.0},
+        {"right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
+         "right_elbow": 0.0, "right_wrist_yaw": 0.0, "right_wrist_pitch": 0.0,
+         "right_wrist_roll": 0.0},
     ],
     "perdon": [
         {"right_shoulder_pitch": -1.2, "right_elbow": -0.7, "right_wrist_roll": 0.0},
@@ -143,10 +248,33 @@ DICCIONARIO_SENAS = {
         {"left_shoulder_pitch": 0.0, "left_elbow": 0.0, "left_wrist_roll": 0.0,
          "right_shoulder_pitch": 0.0, "right_elbow": 0.0, "right_wrist_roll": 0.0}
     ],
+    # AGUA: W exagerada + toques al menton bien visibles.
     "agua": [
-        {"right_shoulder_pitch": -0.8, "right_elbow": -1.0, "right_wrist_roll": 0.6},
-        {"right_shoulder_pitch": -0.8, "right_elbow": -1.0, "right_wrist_roll": -0.6},
-        {"right_shoulder_pitch": 0.0, "right_elbow": 0.0}
+        # Acerca W a la cara
+        {"right_shoulder_pitch": -0.3, "right_shoulder_roll": -0.45,
+         "right_shoulder_yaw": -0.95, "right_elbow": -1.7,
+         "right_wrist_pitch": 1.15, "right_wrist_yaw": 0.55, "right_wrist_roll": 0.2},
+        # Toque 1 (hold)
+        {"right_shoulder_pitch": -0.2, "right_shoulder_roll": -0.5,
+         "right_shoulder_yaw": -1.1, "right_elbow": -1.8,
+         "right_wrist_pitch": 1.3, "right_wrist_yaw": 0.65, "right_wrist_roll": 0.25},
+        {"right_shoulder_pitch": -0.2, "right_shoulder_roll": -0.5,
+         "right_shoulder_yaw": -1.1, "right_elbow": -1.8,
+         "right_wrist_pitch": 1.3, "right_wrist_yaw": 0.65, "right_wrist_roll": 0.25},
+        # Baja un poco
+        {"right_shoulder_pitch": -0.4, "right_shoulder_roll": -0.35,
+         "right_shoulder_yaw": -0.7, "right_elbow": -1.45,
+         "right_wrist_pitch": 0.55, "right_wrist_yaw": 0.3, "right_wrist_roll": 0.1},
+        # Toque 2
+        {"right_shoulder_pitch": -0.2, "right_shoulder_roll": -0.5,
+         "right_shoulder_yaw": -1.1, "right_elbow": -1.8,
+         "right_wrist_pitch": 1.3, "right_wrist_yaw": 0.65, "right_wrist_roll": 0.25},
+        {"right_shoulder_pitch": -0.2, "right_shoulder_roll": -0.5,
+         "right_shoulder_yaw": -1.1, "right_elbow": -1.8,
+         "right_wrist_pitch": 1.3, "right_wrist_yaw": 0.65, "right_wrist_roll": 0.25},
+        {"right_shoulder_pitch": 0.0, "right_shoulder_roll": 0.0,
+         "right_shoulder_yaw": 0.0, "right_elbow": 0.0,
+         "right_wrist_pitch": 0.0, "right_wrist_yaw": 0.0, "right_wrist_roll": 0.0},
     ],
     "comer": [
         {"right_shoulder_pitch": -0.6, "right_elbow": -1.1, "right_wrist_pitch": 0.8},
@@ -192,6 +320,7 @@ DICCIONARIO_SENAS = {
 }
 
 
+
 def _agregar_frames_intermedios(secuencia):
     """Suaviza cada seña y garantiza mas de cuatro frames por palabra."""
     frames = []
@@ -206,23 +335,17 @@ def _agregar_frames_intermedios(secuencia):
     return frames
 
 
+# Solo para senas viejas del diccionario ampliado. Las 8 del dataset
+# (hola/gracias/chau/si/no/ayuda/agua/amigo) NO se pisan: el keyframe manda.
 _PERFILES_VISUALES = {
-    "hola": {"right_shoulder_pitch": -1.8, "right_elbow": -0.8},
-    "gracias": {"right_shoulder_pitch": -0.35, "right_shoulder_roll": -0.55},
-    "chau": {"right_shoulder_pitch": -1.45, "right_wrist_roll": 0.8},
     "por": {"right_shoulder_pitch": -0.65, "right_wrist_yaw": -0.8},
     "favor": {"left_shoulder_pitch": -0.9, "right_shoulder_pitch": -0.9},
-    "ayuda": {"right_shoulder_pitch": -2.0, "right_elbow": -0.1},
-    "amigo": {"left_shoulder_pitch": -1.2, "right_shoulder_pitch": -0.4},
     "buenos": {"left_shoulder_pitch": -1.3, "right_shoulder_pitch": -1.3},
     "dias": {"right_shoulder_pitch": 0.6, "right_elbow": -1.2},
-    "si": {"right_shoulder_pitch": -0.2, "right_elbow": -1.3},
-    "no": {"right_shoulder_pitch": -1.1, "right_wrist_roll": 0.8},
     "perdon": {"right_shoulder_pitch": -0.2, "right_elbow": -1.4},
     "robot": {"right_shoulder_pitch": 0.8, "right_elbow": -0.2},
     "manana": {"right_shoulder_pitch": -0.8, "right_elbow": 0.5},
     "noche": {"left_shoulder_pitch": -0.8, "right_shoulder_pitch": -0.8},
-    "agua": {"right_shoulder_pitch": -0.1, "right_elbow": -1.4},
     "comer": {"right_shoulder_pitch": -0.6, "right_elbow": -1.1, "right_wrist_pitch": 0.8},
     "casa": {"left_shoulder_pitch": -1.4, "right_shoulder_pitch": -1.4},
     "escuela": {"right_shoulder_pitch": 0.4, "right_elbow": -0.9},
@@ -234,7 +357,9 @@ _PERFILES_VISUALES = {
 
 
 def _aplicar_perfil_visual(palabra, secuencia):
-    perfil = _PERFILES_VISUALES[palabra]
+    perfil = _PERFILES_VISUALES.get(palabra) or {}
+    if not perfil:
+        return secuencia
     return [
         {**frame, **perfil} if indice == 0 else frame
         for indice, frame in enumerate(secuencia)
@@ -243,6 +368,35 @@ def _aplicar_perfil_visual(palabra, secuencia):
 
 DICCIONARIO_SENAS = {
     palabra: _aplicar_perfil_visual(palabra, _agregar_frames_intermedios(secuencia))
+    for palabra, secuencia in DICCIONARIO_SENAS.items()
+}
+
+
+def _joints_dedos(palabra: str, frame_idx: int = 0) -> dict:
+    """Suma joints de mano LSA si esta el paquete tp07_lsa (no rompe si falta)."""
+    try:
+        lsa = Path(__file__).resolve().parents[1] / "tp07_lsa"
+        if str(lsa) not in sys.path:
+            sys.path.insert(0, str(lsa))
+        from poses.manos_dataset import manos_de
+        from poses.mujoco_dedos import mano_a_joints
+
+        manos = manos_de(palabra, frame_idx)
+        if not manos:
+            return {}
+        joints = {}
+        joints.update(mano_a_joints("right", manos.get("derecha")))
+        joints.update(mano_a_joints("left", manos.get("izquierda")))
+        return joints
+    except Exception:
+        return {}
+
+
+# Enriquece las 8 palabras del dataset con angulos de dedos MuJoCo (por frame).
+DICCIONARIO_SENAS = {
+    palabra: [
+        {**frame, **_joints_dedos(palabra, i)} for i, frame in enumerate(secuencia)
+    ]
     for palabra, secuencia in DICCIONARIO_SENAS.items()
 }
 
@@ -293,7 +447,12 @@ class Ejecutor:
             return f"sin señas registradas para '{texto}'"
 
         self._log(f"Ejecutando {len(secuencia_total)} keyframes de señas para: '{texto}'")
-        self.robot.ejecutar_secuencia_senas(secuencia_total, duracion_step=0.35)
+        if any(p in texto for p in ("gracias", "agua")):
+            self._log(
+                "Tip: acerca la camara a la cara/mano derecha "
+                "(rueda del mouse). Menton/W no tienen contacto fisico real."
+            )
+        self.robot.ejecutar_secuencia_senas(secuencia_total, duracion_step=0.55)
         mensaje = f"señas ejecutadas para '{texto}'"
         if palabras_no_registradas:
             mensaje += "; sin seña cargada para: " + ", ".join(palabras_no_registradas)
