@@ -22,16 +22,13 @@ from vocabulario_dataset import (
     VOCABULARIO_AR,
     frase_para_senas,
     listar_vocabulario,
+    normalizar_texto,
 )
 
 
 def _sin_acentos(texto):
     """Devuelve el texto en minusculas, sin diferencias por tildes."""
-    texto = unicodedata.normalize("NFD", texto.lower())
-    return "".join(
-        caracter for caracter in texto
-        if unicodedata.category(caracter) != "Mn"
-    )
+    return normalizar_texto(texto)
 
 
 def _normalizar_comando(texto):
@@ -57,6 +54,8 @@ class ClasificadorIntencion:
         if re.search(r"\b(sena|senas|lenguaje de senas|traduc\w*|interpreta|dec\w*|gesto)\b", texto_l):
             return "SENAS"
         if re.fullmatch(r"(gracias|chau)", texto_l):
+            return "SENAS"
+        if frase_para_senas(texto_l):
             return "SENAS"
         if texto_l in DICCIONARIO_SENAS and texto_l != "hola":
             return "SENAS"

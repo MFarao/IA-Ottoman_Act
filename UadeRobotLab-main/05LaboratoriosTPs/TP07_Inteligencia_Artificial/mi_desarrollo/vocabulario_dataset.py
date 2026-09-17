@@ -31,6 +31,11 @@ ALIAS_A_CANONICA: dict[str, str] = {
     "adios": "chau",
     "adeu": "chau",
     "bye": "chau",
+    "hasta": "chau",
+    "buenas": "hola",
+    "buenos": "hola",
+    "buen": "hola",
+    "saludos": "hola",
     "ok": "si",
     "dale": "si",
     "sip": "si",
@@ -40,14 +45,19 @@ ALIAS_A_CANONICA: dict[str, str] = {
 }
 
 
-def sin_acentos(texto: str) -> str:
-    texto = unicodedata.normalize("NFD", texto.lower())
+def normalizar_texto(texto: str) -> str:
+    """Normaliza mayusculas y tildes para comparar texto de voz."""
+    texto = unicodedata.normalize("NFD", str(texto).casefold())
     return "".join(c for c in texto if unicodedata.category(c) != "Mn")
+
+
+def sin_acentos(texto: str) -> str:
+    return normalizar_texto(texto)
 
 
 def palabras_del_dataset(texto: str) -> list[str]:
     """Extrae, en orden, las palabras del dataset presentes en el texto."""
-    tokens = re.findall(r"[a-z]+", sin_acentos(texto))
+    tokens = re.findall(r"[a-z]+", normalizar_texto(texto))
     encontradas: list[str] = []
     for token in tokens:
         canonica = ALIAS_A_CANONICA.get(token, token)

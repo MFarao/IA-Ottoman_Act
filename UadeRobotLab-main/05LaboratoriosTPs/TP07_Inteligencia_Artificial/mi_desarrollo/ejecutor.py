@@ -27,6 +27,8 @@ import time
 import unicodedata
 from pathlib import Path
 
+from vocabulario_dataset import ALIAS_A_CANONICA
+
 _ENTORNO = Path(__file__).resolve().parent.parent / "entorno"
 if str(_ENTORNO) not in sys.path:
     sys.path.insert(0, str(_ENTORNO))
@@ -429,7 +431,7 @@ class Ejecutor:
         return f"no se como ejecutar {tipo}"
 
     def _ejecutar_senas(self, p):
-        texto = p.get("texto_senas", "").lower()
+        texto = str(p.get("texto_senas", "")).casefold()
         texto = unicodedata.normalize("NFD", texto)
         texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
         palabras = re.findall(r"[a-z]+", texto)
@@ -437,6 +439,7 @@ class Ejecutor:
         palabras_no_registradas = []
 
         for palabra in palabras:
+            palabra = ALIAS_A_CANONICA.get(palabra, palabra)
             if palabra in DICCIONARIO_SENAS:
                 secuencia_total.extend(DICCIONARIO_SENAS[palabra])
             elif palabra not in {"y", "e"} and palabra not in palabras_no_registradas:
